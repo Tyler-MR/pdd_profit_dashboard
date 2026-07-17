@@ -1,0 +1,49 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# Frontend dependencies and build output
+profit-dashboard-vue/node_modules/
+profit-dashboard-vue/dist/
+**/.openai/
+
+# Local data, ETL cache and task state
+cache_v3/
+cache_v3_etl/
+delist_tasks.json
+*.sqlite
+*.db
+
+# Local runtimes and deployment credentials
+.runtime/
+.cloudflared/
+cloudflared.exe
+*.pem
+
+# Local diagnostics and legacy scratch files
+.qa-*.png
+_*.py
+profit-dashboard.html
+bi_api_server.py
+order_api.py
+b_computer_delist_worker.py
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log

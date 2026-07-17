@@ -1,0 +1,9 @@
+# Copy this file to your local cloudflared configuration directory and replace
+# the tunnel ID, credentials file and hostname for your own environment.
+tunnel: REPLACE_WITH_TUNNEL_ID
+credentials-file: C:\path\to\REPLACE_WITH_TUNNEL_CREDENTIALS.json
+
+ingress:
+  - hostname: dashboard.example.com
+    service: http://localhost:8080
+  - service: http_status:404
