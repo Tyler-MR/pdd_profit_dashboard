@@ -28,13 +28,5 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
-    build: {
-      rollupOptions: {
-        input: {
-          main: 'index.html',
-          linkControl: 'link-control.html',
-        },
-      },
-    },
   };
 });
