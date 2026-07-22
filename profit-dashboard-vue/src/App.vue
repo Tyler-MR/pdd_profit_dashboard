@@ -11,10 +11,16 @@
       </div>
 
       <nav class="nav-list" aria-label="看板模块">
-        <button v-for="item in navItems" :key="item.key" class="nav-item" :class="{ active: activeTab === item.key }" @click="switchTab(item.key)">
-          <span class="nav-icon">{{ item.icon }}</span>
-          <span v-if="!sidebarCollapsed">{{ item.label }}</span>
-        </button>
+        <template v-for="item in navItems" :key="item.key">
+          <a v-if="item.href" class="nav-item" :class="{ active: item.key === 'link-control' }" :href="item.href">
+            <span class="nav-icon">{{ item.icon }}</span>
+            <span v-if="!sidebarCollapsed">{{ item.label }}</span>
+          </a>
+          <button v-else class="nav-item" :class="{ active: activeTab === item.key }" @click="switchTab(item.key)">
+            <span class="nav-icon">{{ item.icon }}</span>
+            <span v-if="!sidebarCollapsed">{{ item.label }}</span>
+          </button>
+        </template>
       </nav>
 
       <div v-if="!sidebarCollapsed" class="sidebar-footer">
@@ -218,7 +224,7 @@
         </section>
 
         <section v-else-if="activeTab === 'links'" class="link-section">
-          <section class="panel link-detail-panel">
+          <section v-if="false" class="panel link-detail-panel" aria-hidden="true">
             <div class="link-detail-header">
               <button type="button" class="link-detail-title" :aria-expanded="linkDetailExpanded" title="点击收起/展开" @click="linkDetailExpanded = !linkDetailExpanded">
                 <span class="toggle-icon">{{ linkDetailExpanded ? '▼' : '▶' }}</span>
@@ -341,6 +347,7 @@ const navItems = [
   { key: 'stores', label: '店铺明细', icon: '▦' },
   { key: 'products', label: '商品分析', icon: '◇' },
   { key: 'links', label: '链接明细', icon: '⌁' },
+  { key: 'link-control', label: '链接群控', icon: '▤', href: '/link-control.html' },
   { key: 'cost', label: '成本结构', icon: '◒' },
   { key: 'admin', label: '管理中台', icon: '⚙' },
 ];
@@ -363,7 +370,8 @@ const brandColors = Object.freeze({ 浪奇: colorTokens.blue, 白牌: colorToken
 const { data, status, targets, loading, error, lastUpdated, links, linksMeta, linksLoading, linkFields: linkFieldsRef, linkDashboard, linkDashboardLoading, availableDates, loadAll, refresh, loadLinks, loadLinkDashboard, saveTargets, submitDelist } = useProfitData();
 // 字段接口首次加载或热更新期间可能暂时没有返回 ref；当前数据库字段仍由 linkFieldOrder 提供完整兜底。
 const linkFields = linkFieldsRef || ref([]);
-const activeTab = ref('goals');
+const initialTab = new URLSearchParams(window.location.search).get('tab');
+const activeTab = ref(navItems.some((item) => item.key === initialTab) ? initialTab : 'goals');
 const expandedGoalNodes = ref(new Set());
 const sidebarCollapsed = ref(false);
 const dateStart = ref('');
