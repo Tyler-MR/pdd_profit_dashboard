@@ -1,0 +1,31 @@
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.api
+    container_name: pdd-profit-api
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    expose:
+      - "8090"
+    networks:
+      - profit
+
+  web:
+    image: nginx:alpine
+    container_name: pdd-profit-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "127.0.0.1:8081:80"
+    volumes:
+      - ../profit-dashboard-vue/dist:/usr/share/nginx/html:ro
+      - ./nginx-profit.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - profit
+
+networks:
+  profit:
+    name: pdd-profit-network

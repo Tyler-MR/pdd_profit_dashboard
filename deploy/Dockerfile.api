@@ -1,0 +1,17 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+COPY requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY api_server_v3.py ./api_server_v3.py
+
+RUN mkdir -p /app/cache_v3_etl
+
+EXPOSE 8090
+
+CMD ["python", "api_server_v3.py"]

@@ -1,0 +1,14 @@
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+profit-dashboard-vue/node_modules
+profit-dashboard-vue/dist
+cache_v3/
+cache_v3_etl/
+**/__pycache__/
+*.py[cod]
+*.xlsx
+*.xls
+*.log
