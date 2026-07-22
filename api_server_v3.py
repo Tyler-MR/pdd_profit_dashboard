@@ -72,35 +72,31 @@ def get_mysql():
     return pymysql.connect(**MYSQL_CFG)
 
 def safe_copy(remote, local_dir):
-    """通过 bash 复制 UNC 路径文件到本地"""
+    """跨平台复制源文件到本地缓存目录。"""
     local_dir = Path(local_dir)
     local_dir.mkdir(parents=True, exist_ok=True)
-    remote_posix = str(remote).replace("\\", "/")
     local_path = local_dir / remote.name
-    r = subprocess.run(["cp", remote_posix, str(local_path)], capture_output=True, text=True, timeout=30)
-    if r.returncode != 0:
-        raise IOError(f"复制失败: {remote}\n{r.stderr}")
+    shutil.copy2(remote, local_path)
     return local_path
 
 def list_xlsx_files():
-    """列出所有需要处理的 xlsx 文件，跳过子文件夹"""
+    """递归列出利润率工作簿，排除明确标记为无需读取的内部文件夹。"""
+    base = Path(NETWORK_BASE)
+    if not base.is_dir():
+        print(f"  ⚠ 利润率目录不存在或不可访问: {base}")
+        return []
+
     files = []
-    for m in [6, 7]:
-        month_dir = NETWORK_BASE / f"{m}月"
-        try:
-            # 使用 bash ls
-            r = subprocess.run(["ls", "-p", str(month_dir).replace("\\", "/")],
-                             capture_output=True, text=True, timeout=10)
-            if r.returncode != 0:
-                continue
-            for name in r.stdout.strip().split("\n"):
-                if not name or name.endswith("/"):
-                    continue  # 跳过目录
-                if name.endswith(".xlsx") and "拼多多链接利润率" in name:
-                    files.append((m, month_dir / name))
-        except Exception:
-            pass
-    return files
+    for path in base.rglob("*.xlsx"):
+        if path.name.startswith("~$") or "拼多多链接利润率" not in path.name:
+            continue
+        relative_parts = path.relative_to(base).parts[:-1]
+        if any("不需要读取" in part for part in relative_parts):
+            continue
+        match = re.search(r"(\d{1,2})月", "/".join(relative_parts)) or re.search(r"拼多多链接利润率(\d{4})-(\d{2})-", path.name)
+        month = int(match.group(1) if match and len(match.groups()) == 1 else match.group(2)) if match else 0
+        files.append((month, path))
+    return sorted(files, key=lambda item: (item[0], item[1].name))
 
 # ============ ETL: xlsx → MySQL ============
 def clean_percentage(val):
