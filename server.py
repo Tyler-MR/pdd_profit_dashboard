@@ -223,10 +223,9 @@ class Server(SimpleHTTPRequestHandler):
             elif path == "/api/wdt/orders":
                 result = wdt_query_all(data)
                 self.json_resp(result)
-            elif path == "/api/delist":
-                self._handle_delist_submit(data)
-            elif path == "/api/delist/complete":
-                self._handle_delist_complete(data)
+            elif path in ("/api/delist", "/api/delist/complete"):
+                # 8080 仅作为旧入口，统一转发到 FastAPI 的任务队列。
+                self._proxy_to_api("POST", raw)
             elif path.startswith("/api/v3"):
                 self._proxy_to_v3("POST", raw)
             else:
@@ -289,10 +288,9 @@ class Server(SimpleHTTPRequestHandler):
             plats = {}
             for t in tabs: plats[t[1]] = plats.get(t[1],0)+1
             self.json_resp({"total_tables":len(tabs),"platforms":plats})
-        elif path == "/api/delist/pending":
-            self._handle_delist_pending()
-        elif path == "/api/delist/history":
-            self._handle_delist_history()
+        elif path in ("/api/delist/pending", "/api/delist/history"):
+            # B电脑脚本仍访问 192.168.16.45:8080，保持入口兼容但不再维护第二份队列。
+            self._proxy_to_api("GET")
         elif path.startswith("/api/v3"):
             self._proxy_to_v3("GET")
         else:
@@ -301,11 +299,15 @@ class Server(SimpleHTTPRequestHandler):
             super().do_GET()
 
     # ═══════════════════════════════════════════════
-    # V3 API 代理 → localhost:8090
+    # API 代理 → localhost:8090
     # ═══════════════════════════════════════════════
 
     def _proxy_to_v3(self, method, body=None):
-        """将 /api/v3/* 请求代理转发到本地 api_server_v3.py:8090"""
+        """将 /api/v3/* 请求代理转发到本地 FastAPI:8090。"""
+        self._proxy_to_api(method, body)
+
+    def _proxy_to_api(self, method, body=None):
+        """将兼容 API 请求转发到统一 FastAPI:8090。"""
         target = f"http://127.0.0.1:8090{self.path}"
         try:
             if method == "GET":
@@ -322,9 +324,9 @@ class Server(SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(resp_body)
         except urllib.error.HTTPError as e:
-            self.json_resp({"error": f"V3 API error: {e.code}", "detail": e.reason}, e.code)
+            self.json_resp({"error": f"API proxy error: {e.code}", "detail": e.reason}, e.code)
         except Exception as e:
-            self.json_resp({"error": f"V3 proxy failed: {str(e)}"}, 502)
+            self.json_resp({"error": f"API proxy failed: {str(e)}"}, 502)
 
     # ═══════════════════════════════════════════════
     # 下架任务处理方法

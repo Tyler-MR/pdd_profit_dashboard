@@ -16,7 +16,7 @@ from sqlalchemy import create_engine
 from fastapi import FastAPI, Query, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 import uvicorn
 
 try:
@@ -729,8 +729,8 @@ def refresh_data():
     """刷新数据：重新从 MySQL 读取（数据由定时 ETL 或手动 /api/v3/etl/run 更新）"""
     return {"success": True, "message": "数据已就绪，请重新加载 /api/v3/data", "timestamp": datetime.now().isoformat()}
 
-# ============ 下架任务（与 server.py 共享 delist_tasks.json）============
-DELIST_FILE = Path(__file__).parent / "delist_tasks.json"
+# ============ 下架任务队列（统一由 FastAPI 管理）============
+DELIST_FILE = Path(os.getenv("PROFIT_DELIST_FILE", str(Path(__file__).with_name("delist_tasks.json"))))
 _delist_lock = threading.Lock()
 
 def _read_delist_tasks():
@@ -741,6 +741,7 @@ def _read_delist_tasks():
         return {"tasks": []}
 
 def _write_delist_tasks(data):
+    DELIST_FILE.parent.mkdir(parents=True, exist_ok=True)
     with open(DELIST_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
@@ -769,6 +770,48 @@ async def delist_submit(request: Request):
         tasks["tasks"].append(task)
         _write_delist_tasks(tasks)
     return {"success": True, "task": task}
+
+
+@app.get("/api/delist/pending")
+async def delist_pending():
+    """供 B 电脑下架执行脚本拉取待处理任务。"""
+    with _delist_lock:
+        tasks = _read_delist_tasks()
+        pending = [task for task in tasks.get("tasks", []) if task.get("status") == "pending"]
+    return {"tasks": pending, "count": len(pending)}
+
+
+@app.post("/api/delist/complete")
+async def delist_complete(request: Request):
+    """供 B 电脑下架执行脚本回写任务结果。"""
+    data = await request.json()
+    task_id = str(data.get("task_id", "")).strip()
+    if not task_id:
+        return JSONResponse({"error": "请提供task_id"}, status_code=400)
+
+    result = str(data.get("result", "")).strip().lower()
+    status = "completed" if result == "ok" else "failed"
+    with _delist_lock:
+        tasks = _read_delist_tasks()
+        for task in tasks.get("tasks", []):
+            if task.get("id") == task_id and task.get("status") == "pending":
+                task["status"] = status
+                task["completed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                task["result"] = data.get("result", "")
+                task["error"] = data.get("error", "")
+                _write_delist_tasks(tasks)
+                return {"success": True, "task": task}
+
+    return JSONResponse({"error": "任务不存在或已处理"}, status_code=404)
+
+
+@app.get("/api/delist/history")
+async def delist_history():
+    """查看最近的下架任务记录。"""
+    with _delist_lock:
+        tasks = _read_delist_tasks()
+        history = list(reversed(tasks.get("tasks", [])[-50:]))
+    return {"tasks": history, "count": len(history)}
 
 def _add_range(where, params, col, gte, lte):
     """添加数值范围条件"""

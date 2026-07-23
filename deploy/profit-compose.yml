@@ -9,6 +9,14 @@ services:
       - ../.env
     expose:
       - "8090"
+    # 供宿主机上的旧 8080 兼容服务转发使用；不直接暴露到公网。
+    ports:
+      - "127.0.0.1:8090:8090"
+    environment:
+      PROFIT_DELIST_FILE: /app/data/delist_tasks.json
+    volumes:
+      # 下架任务是运行时数据，不提交到 Git；挂载宿主机文件以保留现有队列。
+      - ../delist_tasks.json:/app/data/delist_tasks.json
     networks:
       - profit
 
